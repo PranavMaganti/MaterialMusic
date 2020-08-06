@@ -1,6 +1,7 @@
-package com.vanpra.materialmusic.ui
+package com.vanpra.materialmusic.theme
 
-import androidx.ui.graphics.Color
+import androidx.compose.ui.graphics.Color
+
 
 val blue200 = Color(0xFF90CAF9)
 val blue500 = Color(0xFF2196F3)

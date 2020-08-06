@@ -1,14 +1,15 @@
-package com.vanpra.materialmusic
+package com.vanpra.materialmusic.layout
 
 import android.database.Cursor
-import androidx.animation.AnimatedFloat
-import androidx.animation.AnimationClockObservable
-import androidx.animation.Spring
-import androidx.compose.Composable
-import androidx.ui.core.Constraints
-import androidx.ui.core.DensityAmbient
-import androidx.ui.layout.DpConstraints
-import androidx.ui.unit.Dp
+import androidx.compose.animation.core.AnimatedFloat
+import androidx.compose.animation.core.AnimationClockObservable
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.layout.DpConstraints
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.platform.DensityAmbient
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 
 @Composable
 fun Dp.toPx(): Int = with(DensityAmbient.current) { this@toPx.toIntPx() }
@@ -16,12 +17,12 @@ fun Dp.toPx(): Int = with(DensityAmbient.current) { this@toPx.toIntPx() }
 @Composable
 fun Constraints.toDp(): DpConstraints = with(DensityAmbient.current) { DpConstraints(this@toDp) }
 
-fun <T> Cursor.map(mapFunc: (Cursor) -> T?) : List<T> {
+fun <T> Cursor.map(mapFunc: (Cursor) -> T?): List<T> {
     return mutableListOf<T>().also { list ->
         if (moveToFirst()) {
             do {
                 val item = mapFunc(this)
-                if(item != null) {
+                if (item != null) {
                     list.add(item)
                 }
             } while (moveToNext())
@@ -32,12 +33,14 @@ fun <T> Cursor.map(mapFunc: (Cursor) -> T?) : List<T> {
 class CustomAnimatedFloat(
     initial: Float,
     clock: AnimationClockObservable,
-    var onNewValue: (Float) -> Boolean
+    var onNewValue: (Float) -> Unit,
+    var useNewValue: MutableState<Boolean>
 ) : AnimatedFloat(clock, Spring.DefaultDisplacementThreshold) {
 
     override var value = initial
         set(value) {
-            if (onNewValue(value)) {
+            if (useNewValue.value) {
+                onNewValue(value)
                 field = value
             }
         }

@@ -7,24 +7,39 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.asImageAsset
 import androidx.lifecycle.AndroidViewModel
-import androidx.ui.graphics.asImageAsset
+import androidx.lifecycle.viewModelScope
+import com.vanpra.materialmusic.layout.PlayerUIState
+import com.vanpra.materialmusic.layout.Screen
+import com.vanpra.materialmusic.layout.SongData
+import com.vanpra.materialmusic.layout.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.lang.IllegalArgumentException
 
 data class MediaColumns(val id: Int, val name: Int, val artist: Int, val duration: Int)
 
 @ExperimentalCoroutinesApi
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    val playerState = MutableStateFlow(PlayerUIState.Closed)
-    val currentScreen: MutableStateFlow<Screen> = MutableStateFlow(Screen.Home)
+    val playerState = mutableStateOf(PlayerUIState.Closed)
+    val currentScreen: MutableState<Screen> = mutableStateOf(Screen.Home)
     val currentSong = MutableStateFlow(SongData(Uri.parse(""), "", "", 0))
     val songs = MutableStateFlow<List<SongData>>(listOf())
 
-    suspend fun getSongs() {
+    private val whatsappPattern = Regex("AUD-.*-WA.*")
+
+    init {
+        viewModelScope.launch {
+            getSongs()
+        }
+    }
+
+    private suspend fun getSongs() {
         withContext(Dispatchers.IO) {
             val projection = arrayOf(
                 MediaStore.Audio.Media._ID,
@@ -42,7 +57,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 null
             ) ?: throw IllegalArgumentException()
 
-
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val nameColumn =
                 cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -52,20 +66,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val columns = MediaColumns(idColumn, nameColumn, artistColumn, durationColumn)
 
             songs.value = cursor.map { parseToSong(it, columns) }
+            cursor.close()
         }
     }
 
-    private fun parseToSong(cursor:Cursor, columns: MediaColumns): SongData? {
+    private fun parseToSong(cursor: Cursor, columns: MediaColumns): SongData? {
         val songUri = ContentUris.withAppendedId(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             cursor.getLong(columns.id)
         )
         val name = cursor.getString(columns.name)
+
+        if (whatsappPattern.matches(name)) {
+            return null
+        }
+
         val artist = cursor.getString(columns.artist)
         val duration = cursor.getInt(columns.duration)
 
         val mmr = MediaMetadataRetriever()
         val bfo = BitmapFactory.Options()
+
         return try {
             mmr.setDataSource(getApplication(), songUri)
             val rawArt = mmr.embeddedPicture
