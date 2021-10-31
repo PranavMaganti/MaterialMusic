@@ -1,20 +1,15 @@
-package com.vanpra.materialmusic
+package com.vanpra.materialmusic.viewmodels
 
 import android.app.Application
 import android.content.ContentUris
 import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
-import android.net.Uri
 import android.provider.MediaStore
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.asImageAsset
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.vanpra.materialmusic.layout.PlayerUIState
-import com.vanpra.materialmusic.layout.Screen
-import com.vanpra.materialmusic.layout.SongData
+import com.vanpra.materialmusic.layout.Song
 import com.vanpra.materialmusic.layout.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,15 +19,16 @@ import kotlinx.coroutines.withContext
 
 data class MediaColumns(val id: Int, val name: Int, val artist: Int, val duration: Int)
 
+
+data class MainViewModelState(
+    val songs: List<Song> = listOf()
+)
+
 @ExperimentalCoroutinesApi
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    val playerState = mutableStateOf(PlayerUIState.Closed)
-    val currentScreen: MutableState<Screen> = mutableStateOf(Screen.Home)
-    val currentSong = MutableStateFlow(SongData(Uri.parse(""), "", "", 0))
-    val songs = MutableStateFlow<List<SongData>>(listOf())
-
     private val whatsappPattern = Regex("AUD-.*-WA.*")
 
+    val state = MutableStateFlow(MainViewModelState())
     init {
         viewModelScope.launch {
             getSongs()
@@ -65,12 +61,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val columns = MediaColumns(idColumn, nameColumn, artistColumn, durationColumn)
 
-            songs.value = cursor.map { parseToSong(it, columns) }
+            state.value = state.value.copy(songs = cursor.map { parseToSong(it, columns) })
             cursor.close()
         }
     }
 
-    private fun parseToSong(cursor: Cursor, columns: MediaColumns): SongData? {
+    private fun parseToSong(cursor: Cursor, columns: MediaColumns): Song? {
         val songUri = ContentUris.withAppendedId(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             cursor.getLong(columns.id)
@@ -96,9 +92,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 0,
                 rawArt.size,
                 bfo
-            ).asImageAsset() else null
+            ).asImageBitmap() else null
 
-            SongData(songUri, name, artist, duration, art)
+            Song(songUri, name, artist, duration, art)
         } catch (e: RuntimeException) {
             null
         }
